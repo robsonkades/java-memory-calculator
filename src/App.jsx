@@ -44,6 +44,7 @@ export default function DetailedMemoryCalculator() {
         ],
     };
 
+    // eslint-disable-next-line react/prop-types
     const Card = ({ title, children, bgColor = 'bg-white' }) => (
         <div className={`border rounded-lg shadow-lg ${bgColor} overflow-hidden`}>
             <div className="px-4 py-2 font-semibold bg-gray-100 border-b">{title}</div>
@@ -53,13 +54,13 @@ export default function DetailedMemoryCalculator() {
 
     const JvmParameters = () => (
         <div className="mt-6 p-4 bg-blue-50 rounded-lg border">
-            <h2 className="text-xl font-bold">Parâmetros Recomendados da JVM</h2>
+            <h2 className="text-xl font-bold">Recommended JVM Parameters</h2>
             <ul className="list-disc list-inside mt-4">
-                <li><span className="font-bold">-Xms:</span> {Math.floor(heapSize * 0.5)}MB (Memória Inicial do Heap)</li>
-                <li><span className="font-bold">-Xmx:</span> {heapSize}MB (Memória Máxima do Heap)</li>
-                <li><span className="font-bold">-Xss:</span> 1MB (Tamanho da Pilha por Thread)</li>
-                <li><span className="font-bold">-XX:MetaspaceSize:</span> {metaspace}MB (Tamanho Inicial do Metaspace)</li>
-                <li><span className="font-bold">-XX:MaxMetaspaceSize:</span> {metaspace}MB (Tamanho Máximo do Metaspace)</li>
+                <li><span className="font-bold">-Xms:</span> {Math.floor(heapSize * 0.5)}MB (Initial Heap Memory)</li>
+                <li><span className="font-bold">-Xmx:</span> {heapSize}MB (Maximum Heap Memory)</li>
+                <li><span className="font-bold">-Xss:</span> 1MB (Stack Size per Thread)</li>
+                <li><span className="font-bold">-XX:MetaspaceSize:</span> {metaspace}MB (Initial Metaspace Size)</li>
+                <li><span className="font-bold">-XX:MaxMetaspaceSize:</span> {metaspace}MB (Maximum Metaspace Size)</li>
                 <li><span className="font-bold">-XX:CompressedClassSpaceSize:</span> {compressedClassSpace}MB</li>
             </ul>
         </div>
@@ -72,13 +73,13 @@ export default function DetailedMemoryCalculator() {
         const cpuLimit = Math.ceil(threads * 0.2);
         return (
             <div className="mt-6 p-4 bg-green-50 rounded-lg border">
-                <h2 className="text-xl font-bold">Recomendações de Configuração do Kubernetes</h2>
+                <h2 className="text-xl font-bold">Recommendations for Kubernetes Configuration</h2>
                 <h3 className="text-lg font-semibold mt-4">Requests & Limits</h3>
                 <ul className="list-disc list-inside mt-2">
-                    <li><span className="font-bold">Request de Memória:</span> {requestMemory}Mi</li>
-                    <li><span className="font-bold">Limit de Memória:</span> {limitMemory}Mi</li>
-                    <li><span className="font-bold">Request de CPU:</span> {cpuRequest} cores</li>
-                    <li><span className="font-bold">Limit de CPU:</span> {cpuLimit} cores</li>
+                    <li><span className="font-bold">Memory Request:</span> {requestMemory}Mi</li>
+                    <li><span className="font-bold">Memory Limit:</span> {limitMemory}Mi</li>
+                    <li><span className="font-bold">CPU Request:</span> {cpuRequest} cores</li>
+                    <li><span className="font-bold">CPU Limit:</span> {cpuLimit} cores</li>
                 </ul>
             </div>
         );
@@ -87,12 +88,12 @@ export default function DetailedMemoryCalculator() {
     return (
         <div className="p-4 max-w-6xl mx-auto">
             <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
-                <h1 className="text-2xl font-bold mb-6">Calculadora de Memória Java</h1>
+                <h1 className="text-2xl font-bold mb-6">Java Memory Calculator</h1>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                         <div>
-                            <label className="block font-medium mb-1">Heap Desejado (MB):</label>
+                            <label className="block font-medium mb-1">Desired Heap (MB):</label>
                             <input
                                 type="number"
                                 value={heapSize}
@@ -101,7 +102,7 @@ export default function DetailedMemoryCalculator() {
                             />
                         </div>
                         <div>
-                            <label className="block font-medium mb-1">Número de Threads:</label>
+                            <label className="block font-medium mb-1">Number of Threads:</label>
                             <input
                                 type="number"
                                 value={threads}
@@ -110,7 +111,7 @@ export default function DetailedMemoryCalculator() {
                             />
                         </div>
                         <div>
-                            <label className="block font-medium mb-1">Número de Classes:</label>
+                            <label className="block font-medium mb-1">Number of Classes:</label>
                             <input
                                 type="number"
                                 value={classes}
@@ -129,7 +130,7 @@ export default function DetailedMemoryCalculator() {
                         </div>
                     </div>
 
-                    <Card title="Distribuição de Memória">
+                    <Card title="Memory Distribution">
                         <Pie data={pieData} />
                     </Card>
                 </div>
@@ -153,8 +154,8 @@ export default function DetailedMemoryCalculator() {
                 </div>
 
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
-                    <div className="text-xl font-bold">Memória Total Recomendada: {total}MB</div>
-                    <div className="text-sm text-gray-600">Inclui margem de segurança de {safetyMargin}MB (10%)</div>
+                    <div className="text-xl font-bold">Total Recommended Memory: {total}MB</div>
+                    <div className="text-sm text-gray-600">Includes safety margin of {safetyMargin} MB (10%)</div>
                 </div>
 
                 <div className="mt-6">
