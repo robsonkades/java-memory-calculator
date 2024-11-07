@@ -10,7 +10,7 @@ export default function DetailedMemoryCalculator() {
     const [classes, setClasses] = useState(10000);
     const [targetUtilization, setTargetUtilization] = useState(75);
     const [stackSizePerThread, setStackSizePerThread] = useState(1);
-    const [codeCache, setCodeCache] = useState(240);
+    const [codeCache, setCodeCache] = useState(64);
     const [maxDirectMemorySize, setMaxDirectMemorySize] = useState(10);
     const [gcType, setGCType] = useState('G1');
 
@@ -31,8 +31,9 @@ export default function DetailedMemoryCalculator() {
 
     // Total with safety margin
     const subtotal = heapSize + totalNonHeap + totalOther;
-    const safetyMargin = Math.ceil(subtotal * 0.1);
-    const total = subtotal + safetyMargin;
+    const total = subtotal % 8 === 0 ?  subtotal :  Math.ceil(subtotal / 8) * 8;
+    const safetyMarginPercent = (((total - subtotal) / subtotal) * 100).toFixed(2);
+    const safetyMargin = total - subtotal
 
     // Pie Chart Data
     const pieData = {
@@ -46,6 +47,7 @@ export default function DetailedMemoryCalculator() {
         ],
     };
 
+    // eslint-disable-next-line react/prop-types
     const TooltipLabel = ({text, tooltip}) => (
         <div className="group relative inline-block">
             <div className="inline-flex items-center">
@@ -126,7 +128,7 @@ export default function DetailedMemoryCalculator() {
                     <li className="my-2">
                         <TooltipLabel
                             text={<span className="font-bold">-XX:ReservedCodeCacheSize={codeCache}m</span>}
-                            tooltip="Space reserved for JIT-compiled code. Important for applications that use a lot of dynamic code or have many classes. Increase it if you see messages about a full code cache."
+                            tooltip="Space reserved for JIT-compiled code. Important for applications that use a lot of dynamic code or have many classes. Increase it if you see messages about a full code cache. You can check the current value with the parameter -XX:+PrintFlagsFinal."
                         />
                     </li>
                     <li className="my-2">
@@ -240,6 +242,15 @@ export default function DetailedMemoryCalculator() {
                                 className="w-full p-2 border rounded focus:ring focus:ring-blue-300"
                             />
                         </div>
+                        <div>
+                            <label className="block font-medium mb-1">Stack size per Thread (MB):</label>
+                            <input
+                                type="number"
+                                value={stackSizePerThread}
+                                onChange={(e) => setStackSizePerThread(Number(e.target.value))}
+                                className="w-full p-2 border rounded focus:ring focus:ring-blue-300"
+                            />
+                        </div>
                     </div>
 
                     <div className="bg-white rounded-lg shadow p-4">
@@ -273,7 +284,7 @@ export default function DetailedMemoryCalculator() {
 
                 <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
                     <div className="text-xl font-bold">Recommended Total Memory: {total}MB</div>
-                    <div className="text-sm text-gray-600">Includes a safety margin of {safetyMargin}MB (10%)</div>
+                    <div className="text-sm text-gray-600">Includes a safety margin of {safetyMargin}MB ({safetyMarginPercent}%)</div>
                 </div>
 
                 <JvmParameters/>
