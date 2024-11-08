@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f1c1193b-6669-4e7b-b210-ab20ba0f018b" name="Changes" comment="initial commit">
-      <change beforePath="$PROJECT_DIR$/src/App.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/App.jsx" afterDir="false" />
-    </list>
+    <list default="true" id="f1c1193b-6669-4e7b-b210-ab20ba0f018b" name="Changes" comment="initial commit" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -87,6 +85,7 @@
       <workItem from="1730945310762" duration="2003000" />
       <workItem from="1730947368183" duration="465000" />
       <workItem from="1731026938741" duration="235000" />
+      <workItem from="1731034880727" duration="571000" />
     </task>
     <task id="LOCAL-00001" summary="initial commit">
       <option name="closed" value="true" />
