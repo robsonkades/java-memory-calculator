@@ -1,14 +1,14 @@
-import {useState} from 'react';
-import {Pie} from 'react-chartjs-2';
-import {ArcElement, Chart as ChartJS, Legend, Tooltip} from 'chart.js';
+'use client'
+import { useState } from "react";
+import { Pie } from 'react-chartjs-2';
+import { ArcElement, Chart as ChartJS, Legend, Tooltip } from 'chart.js';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-export default function DetailedMemoryCalculator() {
+export default function Home() {
     const [heapSize, setHeapSize] = useState(512);
     const [threads, setThreads] = useState(50);
     const [classes, setClasses] = useState(10000);
-    const [targetUtilization, setTargetUtilization] = useState(75);
     const [stackSizePerThread, setStackSizePerThread] = useState(1);
     const [codeCache, setCodeCache] = useState(64);
     const [maxDirectMemorySize, setMaxDirectMemorySize] = useState(10);
@@ -31,7 +31,7 @@ export default function DetailedMemoryCalculator() {
 
     // Total with safety margin
     const subtotal = heapSize + totalNonHeap + totalOther;
-    const total = subtotal % 8 === 0 ?  subtotal :  Math.ceil(subtotal / 8) * 8;
+    const total = subtotal % 8 === 0 ? subtotal : Math.ceil(subtotal / 8) * 8;
     const safetyMarginPercent = (((total - subtotal) / subtotal) * 100).toFixed(2);
     const safetyMargin = total - subtotal
 
@@ -48,7 +48,10 @@ export default function DetailedMemoryCalculator() {
     };
 
     // eslint-disable-next-line react/prop-types
-    const TooltipLabel = ({text, tooltip}) => (
+    const TooltipLabel = ({ text, tooltip }: Readonly<{
+        text: React.ReactNode;
+        tooltip: string
+    }>) => (
         <div className="group relative inline-block">
             <div className="inline-flex items-center">
                 {text}
@@ -56,7 +59,7 @@ export default function DetailedMemoryCalculator() {
             <div
                 className="invisible group-hover:visible absolute z-10 w-64 bg-black text-white text-sm rounded-lg py-2 px-3 -right-2 top-full mt-1 shadow-lg">
                 {tooltip}
-                <div className="absolute -top-1 right-3 w-2 h-2 bg-black transform rotate-45"/>
+                <div className="absolute -top-1 right-3 w-2 h-2 bg-black transform rotate-45" />
             </div>
         </div>
     );
@@ -173,6 +176,7 @@ export default function DetailedMemoryCalculator() {
         );
     };
 
+
     return (
         <div className="p-4 max-w-6xl mx-auto">
             <div className="bg-white rounded-lg shadow-lg p-6 mb-4">
@@ -255,7 +259,7 @@ export default function DetailedMemoryCalculator() {
 
                     <div className="bg-white rounded-lg shadow p-4">
                         <h2 className="text-lg font-semibold mb-4">Memory Distribution</h2>
-                        <Pie data={pieData}/>
+                        <Pie data={pieData} />
                     </div>
                 </div>
 
@@ -287,7 +291,7 @@ export default function DetailedMemoryCalculator() {
                     <div className="text-sm text-gray-600">Includes a safety margin of {safetyMargin}MB ({safetyMarginPercent}%)</div>
                 </div>
 
-                <JvmParameters/>
+                <JvmParameters />
             </div>
         </div>
     );
