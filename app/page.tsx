@@ -6,9 +6,10 @@ import { ArcElement, Chart as ChartJS, Legend, Tooltip } from 'chart.js';
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 export default function Home() {
-    const [heapSize, setHeapSize] = useState(512);
-    const [threads, setThreads] = useState(50);
-    const [classes, setClasses] = useState(10000);
+    const [copySuccess, setCopySuccess] = useState(false);
+    const [heapSize, setHeapSize] = useState(384);
+    const [threads, setThreads] = useState(85);
+    const [classes, setClasses] = useState(30000);
     const [stackSizePerThread, setStackSizePerThread] = useState(1);
     const [codeCache, setCodeCache] = useState(64);
     const [maxDirectMemorySize, setMaxDirectMemorySize] = useState(10);
@@ -75,22 +76,8 @@ export default function Home() {
                 </li>
                 <li className="my-2">
                     <TooltipLabel
-                        text={<span
-                            className="font-bold">-XX:G1NewSizePercent={Math.floor(youngGen / heapSize * 100)}%</span>}
-                        tooltip="Sets the minimum size of the young generation for G1. A higher value can improve throughput but increases memory usage. The default value is 5%, but applications with high object allocation may benefit from higher values."
-                    />
-                </li>
-                <li className="my-2">
-                    <TooltipLabel
                         text={<span className="font-bold">-XX:MaxGCPauseMillis=200</span>}
                         tooltip="Sets the maximum pause time goal for G1 collections in milliseconds. G1 will attempt to adjust its behavior to keep pauses below this value. A lower value results in shorter pauses but may reduce throughput."
-                    />
-                </li>
-                <li className="my-2">
-                    <TooltipLabel
-                        text={<span
-                            className="font-bold">-XX:G1HeapRegionSize={Math.max(1, Math.floor(heapSize / 2048))}m</span>}
-                        tooltip="Sets the size of G1 regions. The value must be a power of 2 and is calculated based on the heap size. Smaller regions allow for better memory management but increase overhead."
                     />
                 </li>
             </>
@@ -142,38 +129,62 @@ export default function Home() {
                     </li>
                     <li className="my-2">
                         <TooltipLabel
-                            text={<span className="font-bold">-XX:MaxMetaspaceSize={Math.ceil(metaspace * 1.5)}m</span>}
-                            tooltip="Maximum size of Metaspace. It limits growth to prevent OOM. A value that is too low can cause ClassLoader errors, while a value that is too high can excessively consume native memory."
+                            text={<span className="font-bold">-XX:+ExitOnOutOfMemoryError</span>}
+                            tooltip="Exit the JVM when an OutOfMemoryError is encountered. This can help avoid a situation where the JVM keeps running and consuming more memory without being able to recover."
                         />
                     </li>
                     <li className="my-2">
                         <TooltipLabel
-                            text={<span
-                                className="font-bold">-XX:CompressedClassSpaceSize={compressedClassSpace}m</span>}
-                            tooltip="Space for compressed class pointers. Part of Metaspace, it helps reduce memory usage in applications with many classes."
+                            text={<span className="font-bold">-XX:+UnlockDiagnosticVMOptions</span>}
+                            tooltip="Unlocks additional diagnostic options for JVM, enabling more advanced configuration and debugging options."
                         />
                     </li>
                     <li className="my-2">
                         <TooltipLabel
-                            text={<span className="font-bold">--enable-preview</span>}
-                            tooltip="Enables preview features of Java 21. Useful for testing new functionalities but not recommended for production unless necessary."
+                            text={<span className="font-bold">-XX:NativeMemoryTracking=summary</span>}
+                            tooltip="Enables Native Memory Tracking (NMT) and provides a summary of native memory usage. Useful for diagnosing memory issues related to native memory allocations."
                         />
                     </li>
                     <li className="my-2">
                         <TooltipLabel
-                            text={<span className="font-bold">-XX:+UseStringDeduplication</span>}
-                            tooltip="Optimizes memory usage by eliminating duplicate Strings. Very useful for applications that manipulate many similar strings, such as web services."
+                            text={<span className="font-bold">-XX:+PrintNMTStatistics</span>}
+                            tooltip="Prints statistics about native memory usage. Helps in debugging and understanding the memory consumption of native code."
                         />
                     </li>
-                    <li className="my-2">
-                        <TooltipLabel
-                            text={<span className="font-bold">-XX:+UseCompressedOops</span>}
-                            tooltip="Compresses pointers to ordinary objects. Significantly reduces memory usage in heaps smaller than 32GB. Enabled by default, but it's good to specify."
-                        />
-                    </li>
+
                 </ul>
+                <button onClick={copyToClipboard} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    Copy JVM Parameters
+                </button>
+
+                {copySuccess && (
+                    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-4 py-2 rounded shadow-lg transition-opacity duration-300 ease-in-out">
+                        JVM parameters copied to clipboard!
+                    </div>
+                )}
             </div>
         );
+    };
+
+
+    const copyToClipboard = () => {
+        let gcConfig = "";
+        if (gcType === 'G1') {
+            gcConfig = "-XX:+UseG1GC -XX:MaxGCPauseMillis=200 ";
+        } else {
+            gcConfig = "-XX:+UseZGC -XX:ZAllocationSpikeTolerance=2 ";
+        }
+
+        const jvmParameters = gcConfig + `-Xms${Math.floor(heapSize * 0.7)}m -Xmx${heapSize}m -Xss${stackSizePerThread}M -XX:ReservedCodeCacheSize=${codeCache}m -XX:MaxDirectMemorySize=${maxDirectMemorySize}m -XX:+ExitOnOutOfMemoryError -XX:+UnlockDiagnosticVMOptions -XX:NativeMemoryTracking=summary -XX:+PrintNMTStatistics`;
+
+        navigator.clipboard.writeText(jvmParameters.trim())
+            .then(() => {
+                setCopySuccess(true);
+                setTimeout(() => setCopySuccess(false), 3000); // Esconde o feedback após 3 segundos
+            })
+            .catch(err => {
+                console.error('Failed to copy JVM parameters: ', err);
+            });
     };
 
 
