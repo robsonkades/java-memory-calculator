@@ -8,6 +8,9 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://jvm.expert'),
+  verification: {
+    google: "AzZT5Jz7T3cIN8WQK_b8nCmwDtCthcDOSE9SZD5hu48"
+  },
   alternates: {
     canonical: '/',
   },

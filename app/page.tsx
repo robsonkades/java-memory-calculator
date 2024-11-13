@@ -58,9 +58,11 @@ export default function Home() {
                 {text}
             </div>
             <div
-                className="invisible group-hover:visible absolute z-10 w-64 bg-black text-white text-sm rounded-lg py-2 px-3 -right-2 top-full mt-1 shadow-lg">
+                className="invisible group-hover:visible absolute z-10 w-64 bg-black text-white text-sm rounded-lg py-2 px-3 top-full mt-1 shadow-lg"
+                style={{ transform: "translateX(-50%)", left: "50%" }}
+            >
                 {tooltip}
-                <div className="absolute -top-1 right-3 w-2 h-2 bg-black transform rotate-45" />
+                <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-black rotate-45" />
             </div>
         </div>
     );
