@@ -1,0 +1,59 @@
+export const metadata = {
+    title: 'MaxRAMPercentage done right',
+    description: 'How the JVM sizes the heap from the container limit, why the default 25% and hand-picked percentages both fail, and how to compute a percentage you can trust.',
+    alternates: { canonical: '/guides/maxrampercentage-done-right' },
+};
+
+# MaxRAMPercentage done right
+
+Fixed `-Xmx` in a container means two sources of truth: the deployment's memory limit and
+the flag, which must change in lockstep. `-XX:MaxRAMPercentage` collapses them into one —
+the JVM reads the cgroup limit (`UseContainerSupport`, on by default since JDK 10) and
+sizes the heap as a percentage of it. Resize the limit, and the heap follows. Used
+carelessly, though, it fails in two opposite ways.
+
+## Failure one: the default
+
+With no heap flags at all, the JVM uses `MaxRAMPercentage=25`. A pod with a 1 Gi limit
+gets a 256 MiB heap — the other 768 MiB mostly sits idle. The default exists so a JVM
+sharing a machine stays polite; a dedicated container is not that machine. If you set no
+heap flag, you are running on this default right now.
+
+## Failure two: the universal percentage
+
+The opposite mistake is copying a "use 75%" recommendation everywhere. The non-heap side
+of the JVM — metaspace, code cache, thread stacks, GC structures — is mostly **fixed
+cost**: it does not shrink because the limit shrank. Say those overheads take 300 MiB:
+
+- At a **2 Gi** limit, 75% heap (1536 MiB) + 300 MiB fits with room to spare.
+- At a **512 Mi** limit, 75% heap (384 MiB) + 300 MiB = 684 MiB — the kernel kills the pod.
+
+The safe percentage is a *function of the limit*, not a constant. Small pods need small
+percentages; large pods can push higher.
+
+## Computing a percentage you can trust
+
+Work backwards from the breakdown: estimate the fixed overheads, subtract them (plus
+headroom) from the limit, and what remains is the largest safe heap — expressed as a
+floored percentage of the limit. That is exactly what the [calculator](/) does in
+"I know my container limit" mode, emitting the pair:
+
+```
+-XX:InitialRAMPercentage=70.0 -XX:MaxRAMPercentage=70.0
+```
+
+Initial equals Max for the same reason `-Xms` should equal `-Xmx`: a footprint that is
+predictable from the first request.
+
+## The fine print
+
+- **`-Xmx` wins.** If both are present, `MaxRAMPercentage` is silently ignored — a
+  classic source of "the flag does nothing" confusion. The [Flags Audit](/flags) catches
+  this.
+- **Recompute when the limit changes substantially.** The percentage encodes the fixed
+  overheads at one specific limit; halving the limit invalidates it.
+- **`MinRAMPercentage` is not what it looks like.** It applies only on tiny-memory
+  systems (under roughly 200 MiB) and does not set a minimum heap on normal pods — most
+  deployments should not touch it.
+- **Verify what the JVM decided**: `java -XX:MaxRAMPercentage=70.0 -XX:+PrintFlagsFinal
+  -version | grep MaxHeapSize` inside the container shows the resolved heap.

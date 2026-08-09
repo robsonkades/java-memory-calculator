@@ -1,13 +1,150 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
+/*
+ * Design tokens, Geist-like: monochrome surfaces separated by 1px hairlines,
+ * three ink levels, a single blue accent, and the validated 8-slot chart
+ * palette (re-validated against #ffffff / #0a0a0a surfaces).
+ *
+ * Theme model (three states): light tokens on bare :root; dark tokens live in
+ * BOTH guards below so an explicit choice beats the OS in either direction —
+ * the media block covers System, [data-theme="dark"] covers the toggle.
+ */
 :root {
+  color-scheme: light;
   --background: #ffffff;
+  --surface: #fafafa;
   --foreground: #171717;
+  --secondary: #666666;
+  --muted: #999999;
+  --line: #eaeaea;
+  --accent: #0070f3;
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-6: #008300;
+  --chart-7: #4a3aa7;
+  --chart-8: #e34948;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: #0a0a0a;
+    --surface: #141414;
+    --foreground: #ededed;
+    --secondary: #a1a1a1;
+    --muted: #7d7d7d;
+    --line: #262626;
+    --accent: #52a8ff;
+    --chart-1: #3987e5;
+    --chart-2: #d95926;
+    --chart-3: #199e70;
+    --chart-4: #c98500;
+    --chart-5: #d55181;
+    --chart-6: #008300;
+    --chart-7: #9085e9;
+    --chart-8: #e66767;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #0a0a0a;
+  --surface: #141414;
+  --foreground: #ededed;
+  --secondary: #a1a1a1;
+  --muted: #7d7d7d;
+  --line: #262626;
+  --accent: #52a8ff;
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-6: #008300;
+  --chart-7: #9085e9;
+  --chart-8: #e66767;
+}
+
+/*
+ * Make the `dark:` variant follow the same three-state model as the tokens
+ * (a handful of legacy dark: utilities still exist outside this file).
+ */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+  &:where(:root[data-theme="dark"], :root[data-theme="dark"] *) {
+    @slot;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-secondary: var(--secondary);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Keep the scrollbar gutter reserved: the drawer's body scroll lock (and
+   short pages) must not widen the viewport and shift centered content. */
+html {
+  scrollbar-gutter: stable;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
+}
+
+/* Default border color = the hairline token (v4 defaults to currentColor). */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--line);
+  }
+}
+
+.guide h1 {
+  @apply text-3xl font-bold tracking-tight mb-3;
+}
+.guide h2 {
+  @apply text-xl font-semibold tracking-tight mt-8 mb-2;
+}
+.guide p {
+  @apply my-3 leading-relaxed;
+}
+.guide ul {
+  @apply list-disc pl-6 my-3 space-y-1;
+}
+.guide code {
+  @apply font-mono text-sm bg-surface border rounded px-1 py-0.5;
+}
+.guide pre {
+  @apply bg-surface border p-4 rounded-lg overflow-x-auto my-4 text-sm font-mono;
+}
+.guide pre code {
+  @apply bg-transparent border-0 p-0;
+}
+.guide a {
+  @apply text-accent hover:underline;
 }

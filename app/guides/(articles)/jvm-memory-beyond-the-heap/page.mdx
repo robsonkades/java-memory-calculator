@@ -1,0 +1,53 @@
+export const metadata = {
+    title: 'Why your JVM uses more memory than -Xmx',
+    description: 'Everything a Java process keeps outside the heap — metaspace, code cache, thread stacks, GC structures, direct buffers — and how to size a container for all of it.',
+    alternates: { canonical: '/guides/jvm-memory-beyond-the-heap' },
+};
+
+# Why your JVM uses more memory than -Xmx
+
+The classic incident: the pod has a 512 Mi limit, the heap is capped at `-Xmx384m`, the heap
+never fills up — and the kernel still OOM-kills the container. Nothing leaked. The process
+simply needs memory the heap flag does not govern, and the limit did not account for it.
+
+## What a Java process actually keeps in memory
+
+The resident set of a JVM is the heap plus a series of native regions, each with its own
+sizing rules:
+
+- **Heap** — the only part `-Xmx` controls. Fully committed at startup when the initial
+  size equals the maximum, which makes the footprint predictable.
+- **Metaspace** — class metadata, roughly 5 KiB per loaded class as a rule of thumb. The
+  compressed class space is a region *inside* this reservation, not an extra on top.
+- **Code cache** — JIT-compiled methods. The JVM reserves 240 MiB by default with tiered
+  compilation; committed memory grows with actual JIT activity.
+- **Thread stacks** — each platform thread reserves the full `-Xss` (1 MiB by default on
+  64-bit). What gets committed is usually only 40–120 KiB per thread, but deep call chains
+  can commit up to the full stack, so conservative sizing multiplies threads by `-Xss`.
+- **GC structures** — card tables, remembered sets, region metadata, relocation data. The
+  cost scales with heap size and differs by collector: roughly 1% of the heap for Serial,
+  3% for Parallel, 5% for G1 and 6% for ZGC.
+- **Direct buffers** — NIO memory used heavily by Netty and file/socket I/O. If
+  `-XX:MaxDirectMemorySize` is not set, the limit silently defaults to the `-Xmx` value.
+- **Everything else** — symbol tables, JIT compiler working memory, JNI allocations, and
+  the C library's own allocator overhead (glibc malloc arenas), which no JVM flag controls
+  at all.
+
+## Sizing the container
+
+A workable limit is the sum of the parts above plus explicit headroom — 15% is a sensible
+default — for the pieces no model can see. Two practical rules follow:
+
+- Never set the container limit equal to `-Xmx`. That is the incident from the first
+  paragraph.
+- Prefer `-XX:+ExitOnOutOfMemoryError` in containers: a fast, clean restart beats a JVM
+  limping through memory exhaustion.
+
+The [calculator](/) runs this model interactively — in both directions: from a desired
+heap to a container limit, or from a fixed limit to the largest heap that fits.
+
+## Estimate, then measure
+
+Estimates get you a safe starting point; production tells you the truth. Enable Native
+Memory Tracking, capture a summary under peak load and compare it with the model — the
+[NMT guide](/guides/reading-nmt-output) and the [NMT Analyzer](/nmt) cover the workflow.

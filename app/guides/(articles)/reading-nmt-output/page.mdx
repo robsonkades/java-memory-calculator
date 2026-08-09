@@ -1,0 +1,64 @@
+export const metadata = {
+    title: 'Reading Native Memory Tracking output',
+    description: 'How to enable NMT, capture a summary with jcmd, understand reserved vs committed and every category, and turn the numbers into a container limit.',
+    alternates: { canonical: '/guides/reading-nmt-output' },
+};
+
+# Reading Native Memory Tracking output
+
+Native Memory Tracking (NMT) is the JVM's own accounting of every byte it allocates —
+heap, metaspace, thread stacks, GC structures, JIT buffers. It is the difference between
+estimating your footprint and measuring it.
+
+## Enabling it
+
+NMT is off by default and requires a restart to enable:
+
+```
+java -XX:NativeMemoryTracking=summary ...
+```
+
+Tracking costs extra native memory (a header per malloc) and some CPU — typically 5–10%.
+Enable it to investigate or to baseline a service, not as a permanent production default.
+
+## Capturing a snapshot
+
+```
+jcmd <pid> VM.native_memory summary
+```
+
+Capture under **peak load**: committed values reflect the moment of the snapshot. For leak
+hunting, take a baseline first and diff against it later:
+
+```
+jcmd <pid> VM.native_memory baseline
+# ... let the workload run ...
+jcmd <pid> VM.native_memory summary.diff
+```
+
+## Reserved vs committed
+
+Every line shows two numbers. **Reserved** is address space the JVM claimed — it costs
+nothing physical. **Committed** is memory backed by RAM (or swap) — this is what pressures
+your container limit. A huge reserved value (the compressed class space reserves ~1 GiB by
+design) is normal and harmless.
+
+## The categories that matter
+
+- **Java Heap** — fully committed at startup when the initial heap equals the maximum.
+- **Class / Metaspace** — class metadata; grows with loaded classes.
+- **Thread** — stacks; reserved counts every thread at full `-Xss`, committed shows what
+  was touched.
+- **Code** — the JIT code cache, growing toward `ReservedCodeCacheSize`.
+- **GC** — collector structures; scales with heap size and collector choice.
+- **Compiler / Symbol / Internal / Other** — JIT working memory, name tables, direct
+  buffers and the VM's own bookkeeping.
+
+## From numbers to a container limit
+
+The committed total plus headroom is your measured container limit. Mind two blind spots:
+NMT sees only the JVM's own allocations — native libraries calling `malloc` through JNI
+and the glibc allocator's arena overhead are invisible to it — and a snapshot is only as
+representative as the load behind it. Paste your summary into the
+[NMT Analyzer](/nmt) to get the breakdown and the recommendation computed for you, or
+start from an estimate with the [calculator](/).

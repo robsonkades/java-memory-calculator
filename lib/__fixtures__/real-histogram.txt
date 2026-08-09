@@ -1,0 +1,33 @@
+19892:
+ num     #instances         #bytes  class name (module)
+-------------------------------------------------------
+   1:         58433        5143016  [B (java.base@25.0.4)
+   2:         56728        1361472  java.lang.String (java.base@25.0.4)
+   3:          9060        1150672  java.lang.Class (java.base@25.0.4)
+   4:         24027         768864  java.util.concurrent.ConcurrentHashMap$Node (java.base@25.0.4)
+   5:          9504         616088  [Ljava.lang.Object; (java.base@25.0.4)
+   6:          3697         356216  [I (java.base@25.0.4)
+   7:          8004         320160  java.util.LinkedHashMap$Entry (java.base@25.0.4)
+   8:          9577         306464  java.util.HashMap$Node (java.base@25.0.4)
+   9:          3270         295032  [Ljava.util.HashMap$Node; (java.base@25.0.4)
+  10:           447         251664  [Ljdk.internal.vm.FillerElement; (java.base@25.0.4)
+  11:           216         241760  [Ljava.util.concurrent.ConcurrentHashMap$Node; (java.base@25.0.4)
+  12:          2576         226688  java.lang.reflect.Method (java.base@25.0.4)
+  13:          3140         200960  java.util.LinkedHashMap (java.base@25.0.4)
+  14:          3902         187296  java.lang.invoke.MemberName (java.base@25.0.4)
+  15:          9862         157792  java.lang.Object (java.base@25.0.4)
+  16:           284         120944  [C (java.base@25.0.4)
+  17:          1862         119168  jdk.internal.classfile.impl.AbstractPoolEntry$Utf8EntryImpl (java.base@25.0.4)
+  18:          2917         116680  java.lang.invoke.MethodType (java.base@25.0.4)
+  19:          2924          93568  jdk.internal.util.WeakReferenceKey (java.base@25.0.4)
+  20:          2281          91240  jdk.internal.util.SoftReferenceKey (java.base@25.0.4)
+  21:          3187          87896  [Ljava.lang.Class; (java.base@25.0.4)
+  22:          1873          77008  [Ljava.lang.String; (java.base@25.0.4)
+  23:          3063          73512  java.util.ImmutableCollections$List12 (java.base@25.0.4)
+  24:          1294          72464  org.springframework.core.ResolvableType
+  25:          2987          71688  java.util.ArrayList (java.base@25.0.4)
+  26:          1432          68736  java.util.HashMap (java.base@25.0.4)
+  27:          1709          68360  java.util.TreeMap$Entry (java.base@25.0.4)
+3581:             1             16  tools.jackson.databind.ser.jdk.StringSerializer
+3582:             1             16  tools.jackson.databind.ser.std.NullSerializer
+Total        312424       15383512

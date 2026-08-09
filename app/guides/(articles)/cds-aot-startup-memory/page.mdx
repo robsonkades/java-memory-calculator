@@ -1,0 +1,67 @@
+export const metadata = {
+    title: 'CDS, AOT cache and startup memory',
+    description: 'How class-data sharing and the JDK 24/25 AOT cache trade disk and shared memory for faster startup, including the Spring Boot training-run flow.',
+    alternates: { canonical: '/guides/cds-aot-startup-memory' },
+};
+
+# CDS, AOT cache and startup memory
+
+Startup optimization in modern Java is an exercise in *moving work to build time* — and
+the artifacts that carry that work (CDS archives, the AOT cache) show up in your memory
+accounting in ways worth understanding before a dashboard scares you.
+
+## CDS: the archive you are already using
+
+Every modern JDK ships a **default CDS archive** (`classes.jsa`): core JDK classes,
+pre-parsed and pre-verified, memory-mapped at startup. Two properties matter for sizing:
+
+- The mapping is **read-only and shared** — multiple JVMs on the same node share the
+  same physical pages. In NMT it appears as the *Shared class space* category (mapped
+  size, typically ~12–16 MiB committed for the default archive).
+- Because it is a clean file-backed mapping, the kernel can drop and re-read those pages
+  under memory pressure — they are cheaper than their RSS contribution suggests.
+
+**AppCDS** extends the archive with *your* application's classes
+(`-XX:ArchiveClassesAtExit=app.jsa` on a training run, then
+`-XX:SharedArchiveFile=app.jsa`). Typical results: noticeably faster class loading and a
+few hundred ms off a Spring Boot startup, with an archive of tens to a couple hundred
+MiB on disk, mostly shared when mapped.
+
+## The AOT cache: Project Leyden lands in 24/25
+
+The **AOT cache** generalizes CDS. JEP 483 (JDK 24) caches classes *already loaded and
+linked*; JDK 25 added one-step creation (JEP 514: `-XX:AOTCacheOutput=app.aot` on the
+training run) and cached **method profiles** (JEP 515), so the JIT starts compiling hot
+methods immediately instead of re-learning them. The flow:
+
+```
+# training run (representative workload, then exit)
+java -XX:AOTCacheOutput=app.aot -jar app.jar
+
+# production
+java -XX:AOTCache=app.aot -jar app.jar
+```
+
+Spring Boot's recommended container flow extracts the jar first
+(`java -Djarmode=tools -jar app.jar extract`) so the training run and the production run
+see identical class paths — a requirement, since the cache is validated against them.
+Build the cache in the image build, with the same JDK build and architecture as
+production.
+
+## What it costs vs what it saves
+
+- **Disk/image**: the archive — tens to hundreds of MiB in the image.
+- **Memory**: a mapped, mostly-shared, mostly-clean region. On a node running several
+  replicas of the same image, pages are shared between them; the *marginal* RSS per pod
+  is far below the file size. Budget a modest amount in headroom rather than modeling it.
+- **Startup**: typically 2–4× faster time-to-first-request for framework-heavy apps with
+  JDK 25's cache — and less JIT work in the first minutes.
+
+## The real constraint is CPU, not memory
+
+Startup pain in Kubernetes is usually **CFS throttling**: a pod with `cpu: 1` gets its
+JIT compilation storm stretched over minutes of throttled quota. The AOT cache attacks
+exactly that — less loading, linking and (with JEP 515) less early JIT means less CPU
+demand in the window where the quota hurts most. If your p99 is bad only after deploys,
+fix startup CPU before touching memory: the [memory model](/) will barely change, the
+first minutes will.

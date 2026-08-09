@@ -1,0 +1,65 @@
+export const metadata = {
+    title: 'Metaspace, demystified',
+    description: 'What class metadata actually costs, why a ~1 GiB reservation is normal, what MetaspaceSize really does, and how to hunt classloader leaks with NMT and jcmd.',
+    alternates: { canonical: '/guides/metaspace-deep-dive' },
+};
+
+# Metaspace, demystified
+
+Metaspace is where the JVM keeps class metadata — the runtime representation of every
+loaded class: method bytecode and metadata, constant pools, annotations, vtables. It
+lives in native memory, outside the heap, and it is the second thing (after the heap)
+people misread in memory dashboards.
+
+## The scary reservation that costs nothing
+
+With compressed class pointers enabled (the default), the JVM reserves a contiguous
+**compressed class space** — about 1 GiB of address space — so that class pointers fit
+in 32 bits. Monitoring that shows "Class: reserved 1,048,576 KB" is reporting address
+space, not RAM. What you pay is the **committed** number, typically tens of MiB. The
+compressed class space lives *inside* the metaspace accounting; adding them together
+double-counts — the reason the [calculator](/) displays it as a sub-item of Metaspace.
+
+## What the flags actually do
+
+- **`-XX:MetaspaceSize`** is not an initial allocation. It is the *high-water mark* at
+  which the first metadata-triggered GC runs to unload classes. Metaspace starts small
+  and grows on demand regardless of this flag. Raising it merely delays the first
+  metadata GC.
+- **`-XX:MaxMetaspaceSize`** is unlimited by default. Capping it converts unbounded
+  native growth into `OutOfMemoryError: Metaspace` — a fair trade for a container, but
+  size the cap from measured data, not guesses, or you turn a slow leak into a crash
+  loop.
+- Since JDK 16 (JEP 387, "Elastic Metaspace"), freed chunks are returned to the OS much
+  more eagerly, so committed metaspace can shrink after class unloading — older "it
+  never shrinks" folklore is outdated.
+
+## What it costs
+
+The working rule of thumb: **~5 KiB per loaded class**, compressed class space included.
+A typical Spring Boot service loads 20,000–40,000 classes → 100–200 MiB. The exact
+number depends on class size and classloader layout; measure before capping.
+
+## The classic failure: classloader leaks
+
+Metaspace only frees metadata when the *classloader* that loaded the class becomes
+unreachable. Anything that keeps a classloader alive — a static reference, a
+ThreadLocal, a registered JDBC driver, a shutdown hook — keeps every class it loaded
+alive. The historical offender was war redeploys in app servers; the modern ones are
+plugin systems and frameworks generating classes at runtime (proxies, generated
+serializers). The signature is committed metaspace climbing across redeploy/reload
+cycles and never coming back.
+
+## Measuring it
+
+- **NMT**: `-XX:NativeMemoryTracking=summary`, then `jcmd <pid> VM.native_memory summary`
+  — the Class/Metaspace categories; paste it into the [NMT Analyzer](/nmt). For growth,
+  use a baseline and `summary.diff`.
+- **`jcmd <pid> VM.metaspace`** — the detailed view: per-classloader usage, chunk and
+  fragmentation statistics. This is the tool for finding *which* loader is leaking.
+- **`jcmd <pid> GC.class_stats`** era tooling is gone; class histograms
+  (`jcmd <pid> GC.class_histogram`) show heap instances, not metaspace — a common
+  mix-up.
+
+If metaspace is your growth curve, the fix is almost never a bigger cap — it is finding
+the loader that should have died.

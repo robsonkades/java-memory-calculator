@@ -1,0 +1,67 @@
+export const metadata = {
+    title: 'glibc malloc arenas: the RSS nobody accounts for',
+    description: 'Why thread-heavy JVMs show RSS far above what NMT reports, how per-thread arenas multiply, and when MALLOC_ARENA_MAX=2 or jemalloc is the fix.',
+    alternates: { canonical: '/guides/glibc-malloc-arenas' },
+};
+
+# glibc malloc arenas: the RSS nobody accounts for
+
+You enabled NMT, added up every category, and the container's RSS is still 150 MiB
+higher. Nothing in the JVM explains it. The usual culprit is not the JVM at all — it is
+the C library underneath it.
+
+## Where the memory goes
+
+Everything the JVM allocates through `malloc` — JIT compiler arenas, JNI code,
+decompression buffers, parts of NIO, any native library your dependencies load — lands in
+glibc's allocator. To reduce lock contention, glibc maintains multiple **arenas**: on
+64-bit systems, up to **8 × the number of cores** of them. Each arena grabs address space
+in 64 MiB chunks and holds on to freed memory for reuse instead of returning it to the
+kernel.
+
+The failure mode compounds on thread-heavy JVMs: threads get spread across arenas, each
+arena grows its own pools, fragmentation keeps chunks partially used, and the process
+accumulates dozens of mostly-empty 64 MiB regions. None of this is visible to NMT —
+[Native Memory Tracking](/guides/reading-nmt-output) accounts for what the JVM
+*requested*, not what glibc *retained*.
+
+## How to spot it
+
+- **RSS far above the NMT committed total** — paste your summary and your
+  `kubectl top pod` value into the [NMT Analyzer](/nmt); the RSS reality check
+  quantifies the gap.
+- **smaps full of 64 MiB anonymous mappings** — `pmap -x <pid>` (or
+  `/proc/<pid>/smaps`) showing many ~65,536 KiB regions, partially resident, is the
+  arena signature.
+- The gap grows with thread count and with native-heavy workloads (compression, TLS,
+  image processing), not with heap activity.
+
+## The standard fix: MALLOC_ARENA_MAX
+
+Capping the arena count is a one-line environment variable, set where the JVM runs:
+
+```
+MALLOC_ARENA_MAX=2
+```
+
+Two arenas is the widely used value for containerized JVMs — Cloud Foundry and several
+buildpacks shipped it as a default for years. Savings of tens to a couple hundred MiB of
+RSS on thread-heavy services are typical. The trade-off is more contention on native
+allocations; for a JVM — where the hot allocation path is the heap, not malloc — the
+difference is rarely measurable. Test under load if your workload is unusually
+native-heavy.
+
+## The bigger hammer: a different allocator
+
+`jemalloc` or `tcmalloc` via `LD_PRELOAD` replace glibc's allocator with ones designed
+to return memory and fragment less. They help when arena capping is not enough, and
+jemalloc's profiling is also the standard tool for hunting *native* leaks (leaks NMT
+cannot see, because they happen outside the JVM's accounting). The cost: another
+component in the image to keep patched.
+
+## Sizing take
+
+This gap is exactly what the calculator's explicit headroom exists for: glibc retention
+is real memory your limit must cover, even though no JVM flag controls it. If the
+[RSS reality check](/nmt) shows a persistent multi-hundred-MiB gap on a service with
+many threads, set `MALLOC_ARENA_MAX=2` before buying a bigger pod.

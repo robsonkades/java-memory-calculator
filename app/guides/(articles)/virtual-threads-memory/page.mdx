@@ -1,0 +1,62 @@
+export const metadata = {
+    title: 'What virtual threads change about memory',
+    description: 'Heap-allocated stacks, carrier threads collapsing to the core count, and why a service sized for 200 platform threads gets a different memory profile after migrating.',
+    alternates: { canonical: '/guides/virtual-threads-memory' },
+};
+
+# What virtual threads change about memory
+
+Virtual threads (final since Java 21, JEP 444) are usually discussed as a throughput
+feature. They are also a memory-model change: the thread-per-request service you sized
+for 200 platform threads has a different footprint after migrating — smaller in one
+place, larger in another.
+
+## Stacks move to the heap
+
+A platform thread reserves a fixed native stack (`-Xss`, 1 MiB by default) the moment it
+starts. A virtual thread stores its stack as *stack chunk objects on the heap*, starting
+at a few hundred bytes and growing or shrinking as the call depth changes. Two
+consequences:
+
+- `-Xss` does **not** size virtual thread stacks. It still applies to the platform
+  threads that remain.
+- A million parked virtual threads is a heap workload, not a native-memory workload.
+  Budget for it in `-Xmx`, not in the thread-stack line.
+
+## Platform threads collapse to the core count
+
+Virtual threads run on a carrier pool — a `ForkJoinPool` sized to the number of
+available processors by default. After a migration, the platform threads that remain are
+roughly: carriers (≈ CPU limit of the pod), GC and JIT threads, and a handful of
+housekeeping threads. A pod that ran 200 request threads may run 10–30 platform threads
+afterwards.
+
+In the [calculator](/) terms: the *Number of Threads* input drops from "max pool size" to
+"carriers + JVM housekeeping", shrinking the reserved thread-stack upper bound by
+hundreds of MiB — while the heap input should grow to absorb stacks and per-request
+state that used to live off-heap.
+
+## Pinning: mostly a solved problem
+
+On Java 21, a virtual thread blocking inside a `synchronized` block *pinned* its carrier,
+silently reducing parallelism — the standard advice was rewriting hot `synchronized`
+sections to `ReentrantLock`. JEP 491 (JDK 24) fixed this: `synchronized` no longer pins.
+On Java 25 the remaining pinning cases are native frames (JNI) and class initializers —
+rare in application code. If your team still carries a "replace synchronized for Loom"
+rule, it is outdated on 24+.
+
+## ThreadLocal is the new footgun
+
+`ThreadLocal` caches sized for 200 threads are harmless. The same pattern across a
+million short-lived virtual threads means a million copies on the heap — expensive
+buffers in thread-locals are the classic post-migration heap regression. Prefer
+`ScopedValue` (final in Java 25, JEP 506) for request context, and pooling for buffers.
+
+## Sizing checklist after a migration
+
+- Reduce the thread count input to carriers + housekeeping (start with CPU limit + ~20).
+- Grow the heap to absorb virtual-thread stacks and request state; verify with a load
+  test, then [measure with NMT](/nmt) — the Thread category should shrink sharply.
+- Keep connection pools bounded: a million virtual threads happily exhaust a
+  10-connection pool; the bottleneck moves, it does not disappear.
+- Audit `ThreadLocal` usage before, not after.

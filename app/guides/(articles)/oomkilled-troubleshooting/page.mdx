@@ -1,0 +1,59 @@
+export const metadata = {
+    title: 'OOMKilled troubleshooting checklist',
+    description: 'Exit code 137 on a Java pod: how to tell kernel kills from JVM OutOfMemoryError, and a step-by-step checklist to find which memory region blew the limit.',
+    alternates: { canonical: '/guides/oomkilled-troubleshooting' },
+};
+
+# OOMKilled troubleshooting checklist
+
+> Prefer working through this interactively? The [runbook](/runbook) turns these steps
+> into a checklist wired to each tool, with progress saved in your browser.
+
+A Java pod restarting with `OOMKilled` (exit code 137) is not a Java exception. Knowing
+the difference is step zero, because the two failures have different culprits and
+different fixes.
+
+## Kernel kill vs JVM error
+
+- **`OOMKilled` / exit 137** — the *kernel* killed the container because its total
+  resident memory hit the cgroup limit. The heap may have been perfectly healthy; the sum
+  of heap + native regions was not. No Java stack trace exists, because Java never got a
+  say.
+- **`java.lang.OutOfMemoryError`** — the *JVM* refused an allocation against one of its
+  own limits (`-Xmx`, metaspace cap, direct memory cap). The container limit may be fine.
+  You get a stack trace, and with `-XX:+ExitOnOutOfMemoryError` the pod restarts cleanly
+  instead of limping.
+
+An OOMKilled pod with a healthy-looking heap graph means one thing: memory outside the
+heap ate the difference. Work through the checklist.
+
+## The checklist
+
+1. **Compare the limit against the full footprint, not the heap.** Run your flags and
+   limit through the [calculator](/) — if `limit ≈ -Xmx`, you found it already: there was
+   never room for metaspace, stacks, code cache and GC structures.
+2. **Check direct memory.** If `-XX:MaxDirectMemorySize` is not set, NIO buffers may grow
+   up to *another* heap-worth of native memory. Netty-heavy services hit this constantly.
+   The [Flags Audit](/flags) flags the omission.
+3. **Count threads.** Each platform thread reserves `-Xss` (1 MiB default). A thread leak
+   or an unbounded executor turns into native memory growth the heap never shows.
+4. **Measure with NMT.** Enable `-XX:NativeMemoryTracking=summary`, capture
+   `jcmd <pid> VM.native_memory summary` under load, and paste it into the
+   [NMT Analyzer](/nmt) — it shows which category actually grew. For a slow leak, use a
+   baseline and `summary.diff`.
+5. **Mind what NMT cannot see.** glibc malloc arenas (one pool per CPU core by default)
+   and JNI allocations are invisible to the JVM. On thread-heavy services, setting the
+   environment variable `MALLOC_ARENA_MAX=2` often shaves tens of MiB of RSS. The
+   analyzer's RSS reality check quantifies this gap: paste your `kubectl top pod` value
+   next to the NMT summary.
+6. **Only then tune the heap.** If everything above checks out and the pod still dies,
+   the heap really is too big for the limit — shrink it or grow the limit, with explicit
+   headroom (15% is a sensible default) on top of the recomputed total.
+
+## Preventing the next one
+
+Give the pod a limit derived from the full footprint plus headroom, keep requests equal
+to limits, set `-XX:MaxDirectMemorySize` explicitly, and prefer a computed
+`-XX:MaxRAMPercentage` pair over fixed `-Xms`/`-Xmx` — the
+[MaxRAMPercentage guide](/guides/maxrampercentage-done-right) covers how to compute one
+you can trust.

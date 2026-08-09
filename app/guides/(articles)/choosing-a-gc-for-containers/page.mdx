@@ -1,0 +1,52 @@
+export const metadata = {
+    title: 'Choosing a garbage collector for containers',
+    description: 'Serial, Parallel, G1 or ZGC? How pod size, CPU limits and latency requirements pick the collector — and what each one costs in memory.',
+    alternates: { canonical: '/guides/choosing-a-gc-for-containers' },
+};
+
+# Choosing a garbage collector for containers
+
+The JVM picks a collector for you, but its ergonomics were tuned for machines, not pods:
+with fewer than 2 available CPUs or less than about 1792 MiB of memory the JVM quietly
+selects Serial GC instead of G1. In a container you should make the choice explicit — it
+changes latency, throughput and how much native memory the collector itself consumes.
+
+## Serial GC — small pods
+
+One GC thread, stop-the-world, and the smallest footprint of all collectors: little more
+than a card table, around 1% of the heap. For containers with a heap under ~256 MiB or a
+single CPU, pauses on a heap that small are short anyway, and the memory and CPU saved
+matter more than parallelism. Flag: `-XX:+UseSerialGC`.
+
+## Parallel GC — batch throughput
+
+All cores collect at once, optimizing total work done per CPU cycle at the price of longer
+individual pauses. That trade is exactly right for batch jobs, ETL and queue workers,
+where nobody waits on a single request. Overhead is modest (~3% of the heap). Flag:
+`-XX:+UseParallelGC`.
+
+## G1 — the general-purpose default
+
+G1 divides the heap into regions and collects incrementally, aiming at a pause-time goal
+(200 ms by default — no flag needed). It is the right default for typical web services and
+APIs. Its region metadata, card tables and remembered sets cost roughly 5% of the heap in
+native memory. Flag: `-XX:+UseG1GC`.
+
+## ZGC — latency-sensitive services
+
+ZGC keeps pauses under a millisecond regardless of heap size, paying with more CPU and
+more native memory (~6% of the heap) than G1. Worth it when p99 latency is a product
+requirement; wasted on a batch job. Version history matters here: on Java 21 ZGC is
+single-generation by default with generational mode opt-in via `-XX:+ZGenerational`;
+generational became the default in JDK 23 and the only mode from JDK 24 — so on Java 25
+there is no flag to think about. Flag: `-XX:+UseZGC`.
+
+## Rules of thumb
+
+- Heap under ~256 MiB or 1 CPU → Serial.
+- Batch or queue worker, latency irrelevant → Parallel.
+- Typical service, no extreme latency requirement → G1.
+- Strict p99/p999 latency targets and CPU to spare → ZGC.
+
+The collector also changes how much memory the *pod* needs for the same heap — the
+[calculator](/) models that per-collector overhead for Java 21 and 25.
